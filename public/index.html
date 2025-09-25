@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Email Sender</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+        <script>
+      tailwind.config = {
+        darkMode: 'class',
+      }
+    </script>
+<script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
+</head>
+<body x-data="emailForm()" x-init="initTheme(); loadRecipients()" class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 h-screen w-screen flex items-center justify-center p-4 transition-colors overflow-hidden">
+
+<div class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl w-full max-w-[1600px] h-full flex flex-col p-6 relative transition-colors overflow-y-auto">
+
+  <!-- Форма на всю ширину -->
+  <div class="flex-1 flex flex-col gap-4">
+    <div class="flex justify-between items-center">
+      <h1 class="text-2xl font-semibold mb-4">Send Email</h1>
+      <!-- Theme toggle -->
+      <div class="ml-4">
+        <button type="button" @click="toggleTheme()" :aria-pressed="darkMode.toString()" class="flex items-center gap-2 px-3 py-2 rounded-lg bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition">
+          <svg x-show="darkMode" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-yellow-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M10 3.5a.75.75 0 01.75-.75h0A.75.75 0 0111.5 3.5V5a.75.75 0 01-1.5 0V3.5zM10 15a.75.75 0 01.75.75v1.5a.75.75 0 01-1.5 0v-1.5A.75.75 0 0110 15zM4.22 5.47a.75.75 0 010-1.06l.53-.53a.75.75 0 111.06 1.06l-.53.53a.75.75 0 01-1.06 0zM14.19 15.44a.75.75 0 010-1.06l.53-.53a.75.75 0 111.06 1.06l-.53.53a.75.75 0 01-1.06 0zM3.5 10a.75.75 0 01-.75-.75h-.5a.75.75 0 010-1.5h.5A.75.75 0 013.5 8.5V10zM17.75 10a.75.75 0 01-.75.75h-.5a.75.75 0 010-1.5h.5c.414 0 .75.336.75.75zM4.22 14.53a.75.75 0 011.06 0l.53.53a.75.75 0 11-1.06 1.06l-.53-.53a.75.75 0 010-1.06zM14.19 4.56a.75.75 0 011.06 0l.53.53a.75.75 0 11-1.06 1.06l-.53-.53a.75.75 0 010-1.06zM10 6.5a3.5 3.5 0 100 7 3.5 3.5 0 000-7z" />
+          </svg>
+          <svg x-show="!darkMode" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-gray-500" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true">
+            <path d="M17.293 13.293A8 8 0 116.707 2.707a7 7 0 1010.586 10.586z" />
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    <template x-if="message">
+      <div :class="{'bg-green-100 text-green-800': success, 'bg-red-100 text-red-800': !success, 'dark:bg-green-800 dark:text-green-200': success, 'dark:bg-red-800 dark:text-red-200': !success}" class="p-3 rounded mb-2 transition-colors">
+        <p x-text="message"></p>
+      </div>
+    </template>
+
+    <div class="flex-1 flex flex-col gap-4">
+      <!-- To -->
+      <div>
+        <label class="block font-medium mb-1">To</label>
+        <div class="flex gap-2 mb-2">
+          <input type="email" x-model="newRecipient" placeholder="user@example.com" class="flex-1 border rounded-lg p-2 focus:ring-2 focus:ring-blue-300 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"/>
+          <button type="button" @click="addRecipient()" class="bg-blue-500 text-white px-4 rounded-lg hover:bg-blue-600 transition">Add</button>
+        </div>
+        <div class="flex flex-wrap gap-2">
+          <template x-for="(email, index) in recipients" :key="index">
+            <div class="flex items-center bg-gray-200 dark:bg-gray-700 text-gray-800 dark:text-gray-100 px-3 py-1 rounded-full">
+              <span x-text="email"></span>
+              <button type="button" @click="removeRecipient(index)" class="ml-2 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100">&times;</button>
+            </div>
+          </template>
+        </div>
+      </div>
+
+      <!-- Subject -->
+      <div>
+        <label class="block font-medium mb-1">Subject</label>
+        <input type="text" x-model="subject" placeholder="Email Subject (default: Test html send)" class="w-full border rounded-lg p-2 focus:ring-2 focus:ring-blue-300 outline-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"/>
+      </div>
+
+      <!-- HTML Body -->
+      <div class="flex-1 flex flex-col">
+        <label class="block font-medium mb-1">HTML Body</label>
+        <textarea x-model="html" @input="updatePreview" placeholder="<strong>Hello</strong>" class="w-full flex-1 border rounded-lg p-2 focus:ring-2 focus:ring-blue-300 outline-none resize-none dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"></textarea>
+      </div>
+    </div>
+  </div>
+
+  <!-- Кнопки отправки и превью прижаты к низу -->
+  <div class="flex flex-col xl:flex-row gap-2 mt-6 pt-4 border-t dark:border-gray-600">
+      <button type="button" @click="sendEmail" :disabled="loading"
+        class="flex-1 bg-blue-500 hover:bg-blue-600 text-white font-semibold p-3 rounded-lg transition-colors flex justify-center items-center">
+        <span x-show="!loading">Send Email</span>
+        <svg x-show="loading" class="w-5 h-5 animate-spin text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="10" stroke-width="4" stroke-opacity="0.25" class="stroke-current"></circle>
+          <path d="M4 12a8 8 0 018-8" stroke-width="4" stroke-linecap="round" class="stroke-current"></path>
+        </svg>
+      </button>
+      
+      <button 
+        class="xl:flex-1 bg-gray-300 hover:bg-gray-400 text-gray-800 dark:bg-gray-700 dark:text-gray-200 dark:hover:bg-gray-600 p-3 rounded-lg transition-colors"
+        @click="previewOpen = true"
+        :disabled="!html.trim()"
+        :class="!html.trim() ? 'opacity-50 cursor-not-allowed' : ''"
+      >
+        Show Preview
+      </button>
+    </div>
+  </div>
+
+  <!-- Шторка превью для всех устройств -->
+  <div x-show="previewOpen" x-transition class="fixed inset-0 bg-black bg-opacity-50 z-50 flex justify-center items-end">
+    <div class="h-[80vh] bg-white dark:bg-gray-800 w-full rounded-t-2xl p-4 flex flex-col transition-all">
+      <div class="flex justify-between items-center mb-2">
+        <h2 class="text-lg font-medium">Preview</h2>
+        <button @click="previewOpen = false" class="text-gray-700 dark:text-gray-200 text-xl">&times;</button>
+      </div>
+      <iframe x-ref="previewModal" class="w-full flex-1 border rounded-lg dark:border-gray-600 bg-white dark:bg-gray-800" sandbox="allow-scripts allow-same-origin"></iframe>
+    </div>
+  </div>
+
+</div>
+
+<script>
+function emailForm() {
+  return {
+    newRecipient: '',
+    recipients: [],
+    subject: '',
+    html: '',
+    loading: false,
+    message: '',
+    success: false,
+    previewOpen: false,
+    darkMode: true,
+
+    initTheme() {
+      // Load saved preference; if none, use system preference
+      const saved = localStorage.getItem('darkMode');
+      if (saved !== null) {
+        this.darkMode = JSON.parse(saved);
+      } else {
+        this.darkMode = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      }
+      this.applyTheme();
+
+      // Listen to system changes and update if the user hasn't explicitly set a preference
+      try {
+        const mq = window.matchMedia('(prefers-color-scheme: dark)');
+        mq.addEventListener?.('change', (e) => {
+          const savedPref = localStorage.getItem('darkMode');
+          if (savedPref === null) {
+            this.darkMode = e.matches;
+            this.applyTheme();
+          }
+        });
+      } catch (err) {
+        // ignore if matchMedia not supported
+      }
+    },
+
+    toggleTheme() {
+      this.darkMode = !this.darkMode;
+      try {
+        localStorage.setItem('darkMode', JSON.stringify(this.darkMode));
+      } catch (e) {
+        // ignore storage errors (e.g., private mode)
+      }
+      this.applyTheme();
+    },
+
+    applyTheme() {
+      console.debug('applyTheme called, darkMode=', !!this.darkMode);
+      document.documentElement.classList.toggle('dark', !!this.darkMode);
+    },
+
+    loadRecipients() {
+      const saved = localStorage.getItem('recipients');
+      if (saved) this.recipients = JSON.parse(saved);
+    },
+
+    saveRecipients() {
+      localStorage.setItem('recipients', JSON.stringify(this.recipients));
+    },
+
+    addRecipient() {
+      const email = this.newRecipient.trim();
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!email) return;
+      if (!emailRegex.test(email)) {
+        this.message = "Invalid email address";
+        this.success = false;
+        return;
+      }
+      if (!this.recipients.includes(email)) {
+        this.recipients.push(email);
+        this.saveRecipients();
+        this.newRecipient = '';
+        this.message = '';
+      }
+    },
+
+    removeRecipient(index) {
+      this.recipients.splice(index, 1);
+      this.saveRecipients();
+    },
+
+    async sendEmail() {
+      if (this.recipients.length === 0) {
+        this.message = "Please add at least one recipient.";
+        this.success = false;
+        return;
+      }
+      this.loading = true;
+      this.message = '';
+      try {
+        const res = await fetch('http://localhost:3000/send-email', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            from: 'noreply@yourapp.com',
+            to: this.recipients,
+            subject: this.subject || 'Test html send',
+            html: this.html
+          })
+        });
+        const data = await res.json();
+        if (res.ok) {
+          this.message = `Email sent successfully! ID: ${data.messageId || 'n/a'}`;
+          this.success = true;
+          this.recipients = [];
+          this.newRecipient = '';
+          this.subject = '';
+          this.html = '';
+          localStorage.removeItem('recipients');
+          this.updatePreview();
+        } else {
+          this.message = data.error || 'Failed to send email';
+          this.success = false;
+        }
+      } catch (err) {
+        this.message = err.message || 'Network error';
+        this.success = false;
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    updatePreview() {
+      if (this.$refs.previewModal) this.$refs.previewModal.srcdoc = this.html;
+    }
+  }
+}
+</script>
+</body>
+</html>
