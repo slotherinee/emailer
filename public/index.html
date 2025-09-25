@@ -121,7 +121,6 @@ function emailForm() {
     darkMode: true,
 
     initTheme() {
-      // Load saved preference; if none, use system preference
       const saved = localStorage.getItem('darkMode');
       if (saved !== null) {
         this.darkMode = JSON.parse(saved);
@@ -130,7 +129,6 @@ function emailForm() {
       }
       this.applyTheme();
 
-      // Listen to system changes and update if the user hasn't explicitly set a preference
       try {
         const mq = window.matchMedia('(prefers-color-scheme: dark)');
         mq.addEventListener?.('change', (e) => {
@@ -141,7 +139,6 @@ function emailForm() {
           }
         });
       } catch (err) {
-        // ignore if matchMedia not supported
       }
     },
 
@@ -150,7 +147,6 @@ function emailForm() {
       try {
         localStorage.setItem('darkMode', JSON.stringify(this.darkMode));
       } catch (e) {
-        // ignore storage errors (e.g., private mode)
       }
       this.applyTheme();
     },
@@ -197,6 +193,13 @@ function emailForm() {
         this.success = false;
         return;
       }
+
+      // Minimal validation: do not send if HTML body is empty
+      if (!this.html || !this.html.trim()) {
+        this.message = 'HTML body is empty. Please provide the HTML you want to send.';
+        this.success = false;
+        return;
+      }
       this.loading = true;
       this.message = '';
       try {
@@ -214,11 +217,9 @@ function emailForm() {
         if (res.ok) {
           this.message = `Email sent successfully! ID: ${data.messageId || 'n/a'}`;
           this.success = true;
-          this.recipients = [];
           this.newRecipient = '';
           this.subject = '';
           this.html = '';
-          localStorage.removeItem('recipients');
           this.updatePreview();
         } else {
           this.message = data.error || 'Failed to send email';
