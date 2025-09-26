@@ -1,5 +1,5 @@
-import { Injectable } from '@nestjs/common';
-import { Resend } from 'resend';
+import { HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { CreateEmailResponseSuccess, ErrorResponse, Resend } from 'resend';
 
 @Injectable()
 export class ResendEmailService {
@@ -9,7 +9,11 @@ export class ResendEmailService {
     this.resend = new Resend(process.env.RESEND_KEY);
   }
 
-  async sendEmail(body: { to: string; subject: string; html: string }) {
+  async sendEmail(body: {
+    to: string[];
+    subject: string;
+    html: string;
+  }): Promise<CreateEmailResponseSuccess | ErrorResponse> {
     const { data, error } = await this.resend.emails.send({
       from: 'Acme <onboarding@resend.dev>',
       to: body.to,
@@ -18,7 +22,7 @@ export class ResendEmailService {
     });
 
     if (error) {
-      throw new Error(`Failed to send email: ${error.message}`);
+      throw new HttpException('Failed to send email', HttpStatus.BAD_REQUEST);
     }
 
     return data;

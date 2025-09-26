@@ -194,6 +194,12 @@ function emailForm() {
         return;
       }
 
+      if (this.recipients.length >= 50) {
+        this.message = "50 emails max!";
+        this.success = false;
+        return;
+      }
+
       // Minimal validation: do not send if HTML body is empty
       if (!this.html || !this.html.trim()) {
         this.message = 'HTML body is empty. Please provide the HTML you want to send.';
@@ -215,7 +221,7 @@ function emailForm() {
         });
         const data = await res.json();
         if (res.ok) {
-          this.message = `Email sent successfully! ID: ${data.messageId || 'n/a'}`;
+          this.message = `Email sent successfully! ID: ${data.id || 'n/a'}`;
           this.success = true;
           this.newRecipient = '';
           this.subject = '';
