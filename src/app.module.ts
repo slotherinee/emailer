@@ -19,7 +19,7 @@ import { EventEmitterModule } from '@nestjs/event-emitter';
       throttlers: [
         {
           ttl: 60000,
-          limit: 1,
+          limit: 2,
         },
       ],
     }),
