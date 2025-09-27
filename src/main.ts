@@ -1,11 +1,37 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe, Logger } from '@nestjs/common';
+import helmet from 'helmet';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   const logger = new Logger('Bootstrap');
+
+  // Configure Helmet with relaxed CSP for development
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: [
+            "'self'",
+            "'unsafe-inline'", // Allow inline scripts
+            "'unsafe-eval'", // Required for Alpine.js
+            'https://cdn.tailwindcss.com',
+            'https://unpkg.com',
+          ],
+          styleSrc: [
+            "'self'",
+            "'unsafe-inline'", // Allow inline styles
+            'https://cdn.tailwindcss.com',
+          ],
+          imgSrc: ["'self'", 'data:', 'https:'],
+          connectSrc: ["'self'"], // For SSE connections
+        },
+      },
+    }),
+  );
 
   app.enableCors();
   app.useGlobalPipes(new ValidationPipe());

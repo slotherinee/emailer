@@ -15,7 +15,7 @@ export class ResendEmailService {
     html: string;
   }): Promise<CreateEmailResponseSuccess | ErrorResponse> {
     const { data, error } = await this.resend.emails.send({
-      from: 'Acme <onboarding@resend.dev>',
+      from: 'SendHtMail <send@emailer.space>',
       to: body.to,
       subject: body.subject,
       html: body.html,

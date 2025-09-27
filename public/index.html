@@ -13,7 +13,7 @@
     </script>
 <script src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js" defer></script>
 </head>
-<body x-data="emailForm()" x-init="initTheme(); loadRecipients()" class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 h-screen w-screen flex items-center justify-center p-4 transition-colors overflow-hidden">
+<body x-data="emailForm" class="bg-gray-50 text-gray-900 dark:bg-gray-900 dark:text-gray-100 h-screen w-screen flex items-center justify-center p-4 transition-colors overflow-hidden">
 
 <div class="bg-white dark:bg-gray-800 shadow-xl rounded-2xl w-full max-w-[1600px] h-full flex flex-col p-6 relative transition-colors overflow-y-auto">
 
@@ -107,6 +107,41 @@
 
 </div>
 
+<!-- Toast Container -->
+<div id="toast-container" class="fixed z-50 pointer-events-none">
+  <!-- Mobile: top center -->
+  <div class="sm:hidden fixed top-4 left-4 right-4 flex justify-center">
+    <div x-show="toastVisible" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 -translate-y-4" x-transition:enter-end="opacity-1 translate-y-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-1 translate-y-0" x-transition:leave-end="opacity-0 -translate-y-4" 
+         :class="toastType === 'success' ? 'bg-green-500' : 'bg-red-500'" 
+         class="max-w-sm w-full text-white p-4 rounded-lg shadow-lg pointer-events-auto">
+      <div class="flex items-center justify-between">
+        <span class="flex-1 text-sm font-medium" x-text="toastMessage"></span>
+        <button @click="hideToast()" class="ml-4 text-white hover:text-gray-200">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+  
+  <!-- Desktop/Tablet: bottom right -->
+  <div class="hidden sm:block fixed bottom-4 right-4">
+    <div x-show="toastVisible" x-transition:enter="transition ease-out duration-300" x-transition:enter-start="opacity-0 translate-x-4" x-transition:enter-end="opacity-1 translate-x-0" x-transition:leave="transition ease-in duration-200" x-transition:leave-start="opacity-1 translate-x-0" x-transition:leave-end="opacity-0 translate-x-4"
+         :class="toastType === 'success' ? 'bg-green-500' : 'bg-red-500'"
+         class="max-w-sm w-full text-white p-4 rounded-lg shadow-lg pointer-events-auto">
+      <div class="flex items-center justify-between">
+        <span class="flex-1 text-sm font-medium" x-text="toastMessage"></span>
+        <button @click="hideToast()" class="ml-4 text-white hover:text-gray-200">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+          </svg>
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 function emailForm() {
   return {
@@ -119,6 +154,11 @@ function emailForm() {
     success: false,
     previewOpen: false,
     darkMode: true,
+    eventSource: null,
+    currentJobId: null,
+    toastVisible: false,
+    toastMessage: '',
+    toastType: 'success', // 'success' or 'error'
 
     initTheme() {
       const saved = localStorage.getItem('darkMode');
@@ -140,6 +180,95 @@ function emailForm() {
         });
       } catch (err) {
       }
+    },
+
+    initSSE() {
+      this.eventSource = new EventSource('/send-email/events');
+      
+      this.eventSource.onopen = () => {
+        console.log('SSE connection opened');
+      };
+      
+      this.eventSource.onmessage = (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.handleSSEEvent(data);
+        } catch (error) {
+          console.error('Error parsing SSE data:', error);
+          console.error('Raw data was:', event.data);
+        }
+      };
+      
+      this.eventSource.addEventListener('email.completed', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.handleSSEEvent(data);
+        } catch (error) {
+          console.error('Error parsing email.completed data:', error);
+        }
+      });
+      
+      this.eventSource.addEventListener('email.failed', (event) => {
+        try {
+          const data = JSON.parse(event.data);
+          this.handleSSEEvent(data);
+        } catch (error) {
+          console.error('Error parsing email.failed data:', error);
+        }
+      });
+      
+      this.eventSource.onerror = (error) => {
+        console.error('SSE Error:', error);
+        setTimeout(() => {
+          if (this.eventSource.readyState === EventSource.CLOSED) {
+            this.initSSE();
+          }
+        }, 5000);
+      };
+    },
+
+    handleSSEEvent(data) {
+      if (data.jobId !== this.currentJobId) {
+        return;
+      }
+
+      if (data.type === 'email.completed') {
+        this.showToast('✅ Email sent successfully!', 'success');
+        this.newRecipient = '';
+        this.subject = '';
+        this.html = '';
+        this.updatePreview();
+        this.currentJobId = null;
+        this.message = '✅ Email sent successfully!';
+        this.success = true;
+        
+        setTimeout(() => {
+          this.message = '';
+        }, 3000);
+      } else if (data.type === 'email.failed') {
+        this.showToast(`❌ Failed to send email: ${data.error || data.message}`, 'error');
+        this.currentJobId = null;
+        this.message = `❌ Failed to send email: ${data.error || data.message}`;
+        this.success = false;
+        
+        setTimeout(() => {
+          this.message = '';
+        }, 3000);
+      }
+    },
+
+    showToast(message, type) {
+      this.toastMessage = message;
+      this.toastType = type;
+      this.toastVisible = true;
+      
+      setTimeout(() => {
+        this.hideToast();
+      }, 5000);
+    },
+
+    hideToast() {
+      this.toastVisible = false;
     },
 
     toggleTheme() {
@@ -200,14 +329,15 @@ function emailForm() {
         return;
       }
 
-      // Minimal validation: do not send if HTML body is empty
       if (!this.html || !this.html.trim()) {
         this.message = 'HTML body is empty. Please provide the HTML you want to send.';
         this.success = false;
         return;
       }
+
       this.loading = true;
       this.message = '';
+      
       try {
         const res = await fetch('/send-email', {
           method: 'POST',
@@ -219,21 +349,29 @@ function emailForm() {
             html: this.html
           })
         });
+        
         const data = await res.json();
         if (res.ok) {
-          this.message = `Email sent successfully! ID: ${data.id || 'n/a'}`;
+          this.currentJobId = data.jobId;
+          
+          this.message = `📨 Email is being processed...`;
           this.success = true;
-          this.newRecipient = '';
-          this.subject = '';
-          this.html = '';
-          this.updatePreview();
+          
+          setTimeout(() => {
+            if (this.message === '📨 Email is being processed...') {
+              this.message = '';
+            }
+          }, 3000);
+          
         } else {
-          this.message = data.error || 'Failed to send email';
+          this.message = data.error || data.message || 'Failed to send email';
           this.success = false;
+          this.showToast(`❌ ${this.message}`, 'error');
         }
       } catch (err) {
         this.message = err.message || 'Network error';
         this.success = false;
+        this.showToast(`❌ ${this.message}`, 'error');
       } finally {
         this.loading = false;
       }
@@ -241,9 +379,43 @@ function emailForm() {
 
     updatePreview() {
       if (this.$refs.previewModal) this.$refs.previewModal.srcdoc = this.html;
+    },
+
+    destroy() {
+      if (this.eventSource) {
+        this.eventSource.close();
+      }
     }
   }
 }
+
+document.addEventListener('alpine:init', () => {
+  Alpine.data('emailForm', () => ({
+    ...emailForm(),
+    init() {
+      this.initTheme();
+      this.loadRecipients();
+      this.initSSE();
+    }
+  }))
+});
+
+window.addEventListener('beforeunload', function() {
+  try {
+    const emailFormData = Alpine.$data(document.body);
+    if (emailFormData && emailFormData.destroy) {
+      emailFormData.destroy();
+    }
+  } catch (e) {
+    // Fallback cleanup
+    const eventSources = document.querySelectorAll('[data-event-source]');
+    eventSources.forEach(source => {
+      if (source.eventSource) {
+        source.eventSource.close();
+      }
+    });
+  }
+});
 </script>
 </body>
 </html>
